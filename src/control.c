@@ -88,9 +88,10 @@ void PPM_Init() {
 extern TIM_HandleTypeDef htim2;
 
 volatile uint16_t pwm_captured_value[PWM_NUM_CHANNELS] = {1500, 1500}; // Default to center (1500us)
-volatile uint32_t pwm_timeout[PWM_NUM_CHANNELS] = {0, 0};
+volatile uint32_t pwm_timeout[PWM_NUM_CHANNELS] = {501, 501}; // Start at timeout level (501ms) - no signal initially
 volatile uint16_t pwm_rising_edge[PWM_NUM_CHANNELS] = {0, 0};
 volatile uint8_t pwm_edge_state[PWM_NUM_CHANNELS] = {0, 0}; // 0 = waiting for rising, 1 = waiting for falling
+volatile uint8_t pwm_valid[PWM_NUM_CHANNELS] = {0, 0}; // Flag to indicate if valid PWM signal was received (starts invalid)
 
 // PWM Input Capture Callbacks
 void PWM_Channel1_ISR_Callback() {
@@ -124,8 +125,12 @@ void PWM_Channel1_ISR_Callback() {
         
         // Clamp to valid servo range (1000-2000 microseconds)
         pulse_width = CLAMP(pulse_width, 1000, 2000);
-        pwm_captured_value[0] = pulse_width;
-        pwm_timeout[0] = 0;
+        // Only update if pulse width is in valid range
+        if (pulse_width >= 1000 && pulse_width <= 2000) {
+          pwm_captured_value[0] = pulse_width;
+          pwm_valid[0] = 1; // Mark as valid
+          pwm_timeout[0] = 0;
+        }
         pwm_edge_state[0] = 0;
         
         // Switch back to rising edge capture
@@ -171,8 +176,12 @@ void PWM_Channel2_ISR_Callback() {
         
         // Clamp to valid servo range (1000-2000 microseconds)
         pulse_width = CLAMP(pulse_width, 1000, 2000);
-        pwm_captured_value[1] = pulse_width;
-        pwm_timeout[1] = 0;
+        // Only update if pulse width is in valid range
+        if (pulse_width >= 1000 && pulse_width <= 2000) {
+          pwm_captured_value[1] = pulse_width;
+          pwm_valid[1] = 1; // Mark as valid
+          pwm_timeout[1] = 0;
+        }
         pwm_edge_state[1] = 0;
         
         // Switch back to rising edge capture
@@ -191,10 +200,11 @@ void PWM_Channel2_ISR_Callback() {
 void PWM_SysTick_Callback() {
   for (int i = 0; i < PWM_NUM_CHANNELS; i++) {
     pwm_timeout[i]++;
-    // Stop after 500 ms without PWM signal
+    // Stop after 500 ms without valid PWM signal
     if (pwm_timeout[i] > 500) {
-      pwm_captured_value[i] = 1500; // Center position
-      pwm_timeout[i] = 0;
+      pwm_captured_value[i] = 0; // Center position (safe stop)
+      pwm_valid[i] = 0; // Mark as invalid - no signal received
+      pwm_timeout[i] = 500; // Keep at timeout level to prevent wrap-around
     }
   }
 }

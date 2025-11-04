@@ -89,6 +89,7 @@ extern volatile uint16_t ppm_captured_value[PPM_NUM_CHANNELS+1];
 
 #ifdef CONTROL_PWM
 extern volatile uint16_t pwm_captured_value[PWM_NUM_CHANNELS];
+extern volatile uint8_t pwm_valid[PWM_NUM_CHANNELS];
 #endif
 
 int milli_vel_error_sum = 0;
@@ -299,11 +300,22 @@ int main(void) {
     #endif
 
     #ifdef CONTROL_PWM
-      // Convert PWM values (1000-2000 microseconds) to cmd values (-1000 to 1000)
-      // 1500us = center (0), 1000us = -1000, 2000us = +1000
-      cmd1 = CLAMP((pwm_captured_value[0] - 1500) * 2, -1000, 1000); // Channel 1 = steering
-      cmd2 = CLAMP((pwm_captured_value[1] - 1500) * 2, -1000, 1000); // Channel 2 = speed
-      timeout = 0;
+      extern volatile uint8_t pwm_valid[PWM_NUM_CHANNELS];
+      // Only use PWM values if valid signal was received
+      if (pwm_valid[0] && pwm_valid[1]) {
+        // Convert PWM values (1000-2000 microseconds) to cmd values (-1000 to 1000)
+        // 1500us = center (0), 1000us = -1000, 2000us = +1000
+        // Channel 1 = steering (left/right joystick)
+        // Channel 2 = speed (forward/backward joystick)
+        cmd1 = CLAMP((pwm_captured_value[0] - 1500) * 2, -1000, 1000); // Steering
+        cmd2 = CLAMP((pwm_captured_value[1] - 1500) * 2, -1000, 1000); // Speed
+        timeout = 0;
+      } else {
+        // No valid PWM signal - stop motors
+        cmd1 = 0;
+        cmd2 = 0;
+        timeout++; // Increment timeout to trigger emergency stop
+      }
     #endif
 
     #ifdef CONTROL_ADC
