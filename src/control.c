@@ -88,7 +88,7 @@ void PPM_Init() {
 extern TIM_HandleTypeDef htim2;
 
 volatile uint16_t pwm_captured_value[PWM_NUM_CHANNELS] = {1500, 1500}; // Default to center (1500us)
-volatile uint32_t pwm_timeout[PWM_NUM_CHANNELS] = {501, 501}; // Start at timeout level (501ms) - no signal initially
+volatile uint32_t pwm_timeout[PWM_NUM_CHANNELS] = {0, 0}; // Timeout counter - starts at 0
 volatile uint16_t pwm_rising_edge[PWM_NUM_CHANNELS] = {0, 0};
 volatile uint8_t pwm_edge_state[PWM_NUM_CHANNELS] = {0, 0}; // 0 = waiting for rising, 1 = waiting for falling
 volatile uint8_t pwm_valid[PWM_NUM_CHANNELS] = {0, 0}; // Flag to indicate if valid PWM signal was received (starts invalid)
@@ -199,12 +199,16 @@ void PWM_Channel2_ISR_Callback() {
 // SysTick executes once each ms
 void PWM_SysTick_Callback() {
   for (int i = 0; i < PWM_NUM_CHANNELS; i++) {
+    // Increment timeout counter
     pwm_timeout[i]++;
     // Stop after 500 ms without valid PWM signal
     if (pwm_timeout[i] > 500) {
-      pwm_captured_value[i] = 0; // Center position (safe stop)
+      pwm_captured_value[i] = 1500; // Center position (safe stop)
       pwm_valid[i] = 0; // Mark as invalid - no signal received
-      pwm_timeout[i] = 500; // Keep at timeout level to prevent wrap-around
+      // Keep timeout at 500 to prevent overflow
+      if (pwm_timeout[i] > 1000) {
+        pwm_timeout[i] = 500;
+      }
     }
   }
 }
@@ -218,21 +222,6 @@ void PWM_Init() {
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_AFIO_CLK_ENABLE();
   
-  // Configure PA2 for TIM2 Channel 3 (Input Capture) - Channel 1 for steering
-  // PA2 is default TIM2_CH3, so we configure it as floating input
-  // The timer will capture the signal
-  GPIO_InitStruct.Pin = GPIO_PIN_2;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;  // PWM signal from receiver should drive it
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-  
-  // Configure PA3 for TIM2 Channel 4 (Input Capture) - Channel 2 for speed
-  GPIO_InitStruct.Pin = GPIO_PIN_3;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;  // PWM signal from receiver should drive it
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-  
   // Configure TIM2 for PWM input capture on both channels
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = (SystemCoreClock / 1000000) - 1; // 1MHz = 1us resolution
@@ -241,6 +230,23 @@ void PWM_Init() {
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   HAL_TIM_IC_Init(&htim2);
+  
+  // Configure PA2 for TIM2 Channel 3 (Input Capture) - Channel 1 for steering
+  // PA2 is TIM2_CH3 alternate function
+  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;  // Pull-up to ensure clean signal
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  
+  // Configure PA3 for TIM2 Channel 4 (Input Capture) - Channel 2 for speed
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;  // Pull-up to ensure clean signal
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  
+  // Start the timer base (required for input capture)
+  HAL_TIM_Base_Start(&htim2);
   
   // Configure TIM2 Channel 3 (PA2) for input capture (start with rising edge)
   sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
