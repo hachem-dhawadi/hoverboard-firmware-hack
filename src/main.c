@@ -87,6 +87,10 @@ extern uint8_t nunchuck_data[6];
 extern volatile uint16_t ppm_captured_value[PPM_NUM_CHANNELS+1];
 #endif
 
+#ifdef CONTROL_PWM
+extern volatile uint16_t pwm_captured_value[PWM_NUM_CHANNELS];
+#endif
+
 int milli_vel_error_sum = 0;
 
 
@@ -192,6 +196,10 @@ int main(void) {
     PPM_Init();
   #endif
 
+  #ifdef CONTROL_PWM
+    PWM_Init();
+  #endif
+
   #ifdef CONTROL_NUNCHUCK
     I2C_Init();
     Nunchuck_Init();
@@ -288,6 +296,14 @@ int main(void) {
       cmd2 = CLAMP((ppm_captured_value[1] - 500) * 2, -1000, 1000);
       button1 = ppm_captured_value[5] > 500;
       float scale = ppm_captured_value[2] / 1000.0f;
+    #endif
+
+    #ifdef CONTROL_PWM
+      // Convert PWM values (1000-2000 microseconds) to cmd values (-1000 to 1000)
+      // 1500us = center (0), 1000us = -1000, 2000us = +1000
+      cmd1 = CLAMP((pwm_captured_value[0] - 1500) * 2, -1000, 1000); // Channel 1 = steering
+      cmd2 = CLAMP((pwm_captured_value[1] - 1500) * 2, -1000, 1000); // Channel 2 = speed
+      timeout = 0;
     #endif
 
     #ifdef CONTROL_ADC

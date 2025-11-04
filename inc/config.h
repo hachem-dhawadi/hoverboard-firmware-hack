@@ -80,9 +80,15 @@
 //#define CONTROL_PPM                 // use PPM-Sum as input. disable DEBUG_SERIAL_USART2!
 //#define PPM_NUM_CHANNELS 6          // total number of PPM channels to receive, even if they are not used.
 
+// ###### CONTROL VIA PWM (Individual Servo Signals) ######
+// Use individual PWM signals from RC receiver (e.g., Flysky). Connect Channel 1 to PA2, Channel 2 to PA3.
+// PWM signals should be standard servo signals (1000-2000 microseconds, ~50Hz).
+#define CONTROL_PWM                 // use individual PWM signals as input. disable DEBUG_SERIAL_USART2 and CONTROL_ADC!
+#define PWM_NUM_CHANNELS 2           // number of PWM channels to read (Channel 1 = steer, Channel 2 = speed)
+
 // ###### CONTROL VIA TWO POTENTIOMETERS ######
 // ADC-calibration to cover the full poti-range: connect potis to left sensor board cable (0 to 3.3V) (do NOT use the red 15V wire in the cable!). see <How to calibrate>. turn the potis to minimum position, write value 1 to ADC1_MIN and value 2 to ADC2_MIN. turn to maximum position and repeat it for ADC?_MAX. make, flash and test it.
-#define CONTROL_ADC               // use ADC as input. disable DEBUG_SERIAL_USART2!
+//#define CONTROL_ADC               // use ADC as input. disable DEBUG_SERIAL_USART2!
 #define ADC1_MIN         0        // min ADC1-value while poti at minimum-position (0 - 4095)
 #define ADC1_ZERO     1500        // ADC1-value while poti at zero-position (0 - 4095)
 #define ADC1_MAX      4095        // max ADC1-value while poti at maximum-position (0 - 4095)
@@ -181,6 +187,19 @@
   #endif
   #ifdef CONTROL_METHOD_DEFINED
     #error CONTROL_PPM not allowed, another control Method is already defined.
+  #else
+    #define CONTROL_METHOD_DEFINED
+  #endif
+#endif
+
+#if defined(CONTROL_PWM)
+  #ifdef SENSOR_BOARD_CABLE_LEFT_IN_USE
+    #error CONTROL_PWM not allowed, cable already in use.
+  #else
+    #define SENSOR_BOARD_CABLE_LEFT_IN_USE
+  #endif
+  #ifdef CONTROL_METHOD_DEFINED
+    #error CONTROL_PWM not allowed, another control Method is already defined.
   #else
     #define CONTROL_METHOD_DEFINED
   #endif

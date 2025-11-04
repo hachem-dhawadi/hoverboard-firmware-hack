@@ -43,6 +43,9 @@ pb10 usart3 dma1 channel2/3
 TIM_HandleTypeDef htim_right;
 TIM_HandleTypeDef htim_left;
 TIM_HandleTypeDef htim3;
+#ifdef CONTROL_PWM
+TIM_HandleTypeDef htim2;
+#endif
 ADC_HandleTypeDef hadc1;
 ADC_HandleTypeDef hadc2;
 I2C_HandleTypeDef hi2c2;

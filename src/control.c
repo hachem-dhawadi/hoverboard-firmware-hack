@@ -84,6 +84,175 @@ void PPM_Init() {
 }
 #endif
 
+#ifdef CONTROL_PWM
+extern TIM_HandleTypeDef htim2;
+
+volatile uint16_t pwm_captured_value[PWM_NUM_CHANNELS] = {1500, 1500}; // Default to center (1500us)
+volatile uint32_t pwm_timeout[PWM_NUM_CHANNELS] = {0, 0};
+volatile uint16_t pwm_rising_edge[PWM_NUM_CHANNELS] = {0, 0};
+volatile uint8_t pwm_edge_state[PWM_NUM_CHANNELS] = {0, 0}; // 0 = waiting for rising, 1 = waiting for falling
+
+// PWM Input Capture Callbacks
+void PWM_Channel1_ISR_Callback() {
+  // TIM2 Channel 3 (PA2) - Channel 1 for steering
+  if (__HAL_TIM_GET_FLAG(&htim2, TIM_FLAG_CC3)) {
+    if (__HAL_TIM_GET_IT_SOURCE(&htim2, TIM_IT_CC3)) {
+      __HAL_TIM_CLEAR_IT(&htim2, TIM_IT_CC3);
+      
+      uint16_t capture = htim2.Instance->CCR3;
+      
+      if (pwm_edge_state[0] == 0) {
+        // Rising edge detected
+        pwm_rising_edge[0] = capture;
+        pwm_edge_state[0] = 1;
+        // Switch to falling edge capture
+        TIM_IC_InitTypeDef sConfigIC;
+        sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
+        sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+        sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+        sConfigIC.ICFilter = 0;
+        HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_3);
+      } else {
+        // Falling edge detected - calculate pulse width
+        uint16_t pulse_width;
+        if (capture >= pwm_rising_edge[0]) {
+          pulse_width = capture - pwm_rising_edge[0];
+        } else {
+          // Handle overflow
+          pulse_width = (UINT16_MAX - pwm_rising_edge[0]) + capture;
+        }
+        
+        // Clamp to valid servo range (1000-2000 microseconds)
+        pulse_width = CLAMP(pulse_width, 1000, 2000);
+        pwm_captured_value[0] = pulse_width;
+        pwm_timeout[0] = 0;
+        pwm_edge_state[0] = 0;
+        
+        // Switch back to rising edge capture
+        TIM_IC_InitTypeDef sConfigIC;
+        sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+        sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+        sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+        sConfigIC.ICFilter = 0;
+        HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_3);
+      }
+    }
+  }
+}
+
+void PWM_Channel2_ISR_Callback() {
+  // TIM2 Channel 4 (PA3) - Channel 2 for speed
+  if (__HAL_TIM_GET_FLAG(&htim2, TIM_FLAG_CC4)) {
+    if (__HAL_TIM_GET_IT_SOURCE(&htim2, TIM_IT_CC4)) {
+      __HAL_TIM_CLEAR_IT(&htim2, TIM_IT_CC4);
+      
+      uint16_t capture = htim2.Instance->CCR4;
+      
+      if (pwm_edge_state[1] == 0) {
+        // Rising edge detected
+        pwm_rising_edge[1] = capture;
+        pwm_edge_state[1] = 1;
+        // Switch to falling edge capture
+        TIM_IC_InitTypeDef sConfigIC;
+        sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING;
+        sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+        sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+        sConfigIC.ICFilter = 0;
+        HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_4);
+      } else {
+        // Falling edge detected - calculate pulse width
+        uint16_t pulse_width;
+        if (capture >= pwm_rising_edge[1]) {
+          pulse_width = capture - pwm_rising_edge[1];
+        } else {
+          // Handle overflow
+          pulse_width = (UINT16_MAX - pwm_rising_edge[1]) + capture;
+        }
+        
+        // Clamp to valid servo range (1000-2000 microseconds)
+        pulse_width = CLAMP(pulse_width, 1000, 2000);
+        pwm_captured_value[1] = pulse_width;
+        pwm_timeout[1] = 0;
+        pwm_edge_state[1] = 0;
+        
+        // Switch back to rising edge capture
+        TIM_IC_InitTypeDef sConfigIC;
+        sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+        sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+        sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+        sConfigIC.ICFilter = 0;
+        HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_4);
+      }
+    }
+  }
+}
+
+// SysTick executes once each ms
+void PWM_SysTick_Callback() {
+  for (int i = 0; i < PWM_NUM_CHANNELS; i++) {
+    pwm_timeout[i]++;
+    // Stop after 500 ms without PWM signal
+    if (pwm_timeout[i] > 500) {
+      pwm_captured_value[i] = 1500; // Center position
+      pwm_timeout[i] = 0;
+    }
+  }
+}
+
+void PWM_Init() {
+  GPIO_InitTypeDef GPIO_InitStruct;
+  TIM_IC_InitTypeDef sConfigIC;
+  
+  // Enable clocks
+  __HAL_RCC_TIM2_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_AFIO_CLK_ENABLE();
+  
+  // Configure PA2 for TIM2 Channel 3 (Input Capture) - Channel 1 for steering
+  // PA2 is default TIM2_CH3, so we configure it as floating input
+  // The timer will capture the signal
+  GPIO_InitStruct.Pin = GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;  // PWM signal from receiver should drive it
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  
+  // Configure PA3 for TIM2 Channel 4 (Input Capture) - Channel 2 for speed
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;  // PWM signal from receiver should drive it
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  
+  // Configure TIM2 for PWM input capture on both channels
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = (SystemCoreClock / 1000000) - 1; // 1MHz = 1us resolution
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = UINT16_MAX;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  HAL_TIM_IC_Init(&htim2);
+  
+  // Configure TIM2 Channel 3 (PA2) for input capture (start with rising edge)
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 0;
+  HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_3);
+  
+  // Configure TIM2 Channel 4 (PA3) for input capture (start with rising edge)
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_4);
+  
+  // Start input capture
+  HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_4);
+  
+  // Enable interrupts
+  HAL_NVIC_SetPriority(TIM2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(TIM2_IRQn);
+}
+#endif
+
 void Nunchuck_Init() {
     //-- START -- init WiiNunchuck
   i2cBuffer[0] = 0xF0;

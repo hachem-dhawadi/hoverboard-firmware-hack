@@ -44,6 +44,11 @@ extern I2C_HandleTypeDef hi2c2;
 extern DMA_HandleTypeDef hdma_usart2_rx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 extern TIM_HandleTypeDef htim3;
+#ifdef CONTROL_PWM
+extern TIM_HandleTypeDef htim2;
+void PWM_Channel1_ISR_Callback(void);
+void PWM_Channel2_ISR_Callback(void);
+#endif
 
 extern DMA_HandleTypeDef hdma_usart3_rx;
 extern DMA_HandleTypeDef hdma_usart3_tx;
@@ -169,6 +174,9 @@ void PendSV_Handler(void) {
 #ifdef CONTROL_PPM
 void PPM_SysTick_Callback(void);
 #endif
+#ifdef CONTROL_PWM
+void PWM_SysTick_Callback(void);
+#endif
 void SysTick_Handler(void) {
   /* USER CODE BEGIN SysTick_IRQn 0 */
 
@@ -178,6 +186,9 @@ void SysTick_Handler(void) {
   /* USER CODE BEGIN SysTick_IRQn 1 */
 #ifdef CONTROL_PPM
   PPM_SysTick_Callback();
+#endif
+#ifdef CONTROL_PWM
+  PWM_SysTick_Callback();
 #endif
   /* USER CODE END SysTick_IRQn 1 */
 }
@@ -426,6 +437,20 @@ void TIM3_IRQHandler(void)
 
   /* USER CODE END TIM3_IRQn 1 */
 }
+
+#ifdef CONTROL_PWM
+void TIM2_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM2_IRQn 0 */
+  PWM_Channel1_ISR_Callback();
+  PWM_Channel2_ISR_Callback();
+  /* USER CODE END TIM2_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim2);
+  /* USER CODE BEGIN TIM2_IRQn 1 */
+
+  /* USER CODE END TIM2_IRQn 1 */
+}
+#endif
 
 
 /* USER CODE BEGIN 1 */

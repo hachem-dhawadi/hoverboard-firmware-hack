@@ -39,6 +39,10 @@ void UART3_Init();
   void I2C_Init();          // defined in setup.c
 #endif
 
+#ifdef CONTROL_PWM
+  void PWM_Init();          // defined in control.c
+#endif
+
 #ifdef SOFTWATCHDOG_TIMEOUT
   void MX_TIM3_Softwatchdog_Init(void);
   extern TIM_HandleTypeDef htim3;
