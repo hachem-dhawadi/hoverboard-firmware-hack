@@ -301,26 +301,17 @@ int main(void) {
 
     #ifdef CONTROL_PWM
       extern volatile uint8_t pwm_valid[PWM_NUM_CHANNELS];
-      // Use PWM values if at least one channel has valid signal
-      // If both channels are valid, use both; if only one, use it and center the other
-      if (pwm_valid[0] || pwm_valid[1]) {
+      // Only use PWM values if valid signal was received
+      if (pwm_valid[0] && pwm_valid[1]) {
         // Convert PWM values (1000-2000 microseconds) to cmd values (-1000 to 1000)
         // 1500us = center (0), 1000us = -1000, 2000us = +1000
         // Channel 1 = steering (left/right joystick)
         // Channel 2 = speed (forward/backward joystick)
-        if (pwm_valid[0]) {
-          cmd1 = CLAMP((pwm_captured_value[0] - 1500) * 2, -1000, 1000); // Steering
-        } else {
-          cmd1 = 0; // No steering signal - don't steer
-        }
-        if (pwm_valid[1]) {
-          cmd2 = CLAMP((pwm_captured_value[1] - 1500) * 2, -1000, 1000); // Speed
-        } else {
-          cmd2 = 0; // No speed signal - don't move
-        }
+        cmd1 = CLAMP((pwm_captured_value[0] - 1500) * 2, -1000, 1000); // Steering
+        cmd2 = CLAMP((pwm_captured_value[1] - 1500) * 2, -1000, 1000); // Speed
         timeout = 0;
       } else {
-        // No valid PWM signal on either channel - stop motors
+        // No valid PWM signal - stop motors
         cmd1 = 0;
         cmd2 = 0;
         timeout++; // Increment timeout to trigger emergency stop
