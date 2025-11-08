@@ -128,6 +128,12 @@
 #define INVERT_L_DIRECTION
 //#define SWITCH_WHEELS            // switch right and left wheel. Watch out, you probably also need to invert directions.
 
+// ###### CONSTANT FORWARD MODE ######
+// When enabled, motors will continuously run forward at a constant speed when powered
+// This bypasses all RC/input controls and makes the hoverboard move forward automatically
+#define CONSTANT_FORWARD_MODE    1  // Enable (1) or disable (0) constant forward mode
+#define CONSTANT_FORWARD_SPEED   500  // Speed value (0-1000). 500 = 50% speed, 1000 = 100% speed
+
 #define BEEPS_BACKWARD 1    // 0 or 1
 
 //Turbo boost at high speeds while button1 is pressed:

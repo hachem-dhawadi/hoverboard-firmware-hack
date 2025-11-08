@@ -430,18 +430,46 @@ int main(void) {
 
 
     // ####### SET OUTPUTS #######
-    if ((speedL < lastSpeedL + 50 && speedL > lastSpeedL - 50) && (speedR < lastSpeedR + 50 && speedR > lastSpeedR - 50) && timeout < TIMEOUT) {
-    #ifdef INVERT_R_DIRECTION
-      pwmr = speedR;
+    #if defined(CONSTANT_FORWARD_MODE) && (CONSTANT_FORWARD_MODE == 1)
+      // Constant forward mode: motors run forward continuously at fixed speed
+      if (enable == 1) {
+        // Reset timeout to prevent motor disable in constant forward mode
+        // (timeout is normally used to detect missing RC signal, but we don't need RC in this mode)
+        timeout = 0;
+        
+        // Set constant forward speed for both motors
+        // Use the same direction logic as normal mode to ensure correct forward direction
+        int constSpeed = CLAMP(CONSTANT_FORWARD_SPEED, 0, 1000);
+        #ifdef INVERT_R_DIRECTION
+          pwmr = constSpeed;      // Positive value = forward when INVERT_R_DIRECTION is defined
+        #else
+          pwmr = -constSpeed;     // Negative value = forward when INVERT_R_DIRECTION is NOT defined
+        #endif
+        #ifdef INVERT_L_DIRECTION
+          pwml = -constSpeed;     // Negative value = forward when INVERT_L_DIRECTION is defined
+        #else
+          pwml = constSpeed;      // Positive value = forward when INVERT_L_DIRECTION is NOT defined
+        #endif
+      } else {
+        // Motors disabled - stop motors
+        pwml = 0;
+        pwmr = 0;
+      }
     #else
-      pwmr = -speedR;
+      // Normal mode: use RC input
+      if ((speedL < lastSpeedL + 50 && speedL > lastSpeedL - 50) && (speedR < lastSpeedR + 50 && speedR > lastSpeedR - 50) && timeout < TIMEOUT) {
+        #ifdef INVERT_R_DIRECTION
+          pwmr = speedR;
+        #else
+          pwmr = -speedR;
+        #endif
+        #ifdef INVERT_L_DIRECTION
+          pwml = -speedL;
+        #else
+          pwml = speedL;
+        #endif
+      }
     #endif
-    #ifdef INVERT_L_DIRECTION
-      pwml = -speedL;
-    #else
-      pwml = speedL;
-    #endif
-    }
 
 
 
@@ -512,11 +540,23 @@ int main(void) {
 
 
     // ####### INACTIVITY TIMEOUT #######
-    if (ABS(speedL) > 50 || ABS(speedR) > 50) {
-      inactivity_timeout_counter = 0;
-    } else {
-      inactivity_timeout_counter ++;
-    }
+    #if defined(CONSTANT_FORWARD_MODE) && (CONSTANT_FORWARD_MODE == 1)
+      // In constant forward mode, reset inactivity counter since motors are always active
+      if (enable == 1) {
+        inactivity_timeout_counter = 0;
+      } else if (ABS(speedL) > 50 || ABS(speedR) > 50) {
+        inactivity_timeout_counter = 0;
+      } else {
+        inactivity_timeout_counter++;
+      }
+    #else
+      // Normal mode: check if motors are moving
+      if (ABS(speedL) > 50 || ABS(speedR) > 50) {
+        inactivity_timeout_counter = 0;
+      } else {
+        inactivity_timeout_counter ++;
+      }
+    #endif
 
     // inactivity 10s warning; 1s bleeping
     if ((inactivity_timeout_counter > (INACTIVITY_TIMEOUT * 50 * 1000) / (DELAY_IN_MAIN_LOOP + 1)) &&
