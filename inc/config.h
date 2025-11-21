@@ -83,8 +83,8 @@
 // ###### CONTROL VIA PWM (Individual Servo Signals) ######
 // Use individual PWM signals from RC receiver (e.g., Flysky). Connect Channel 1 to PA2, Channel 2 to PA3.
 // PWM signals should be standard servo signals (1000-2000 microseconds, ~50Hz).
-#define CONTROL_PWM                 // use individual PWM signals as input. disable DEBUG_SERIAL_USART2 and CONTROL_ADC!
-#define PWM_NUM_CHANNELS 2           // number of PWM channels to read (Channel 1 = steer, Channel 2 = speed)
+//#define CONTROL_PWM                 // use individual PWM signals as input. disable DEBUG_SERIAL_USART2 and CONTROL_ADC!
+//#define PWM_NUM_CHANNELS 2           // number of PWM channels to read (Channel 1 = steer, Channel 2 = speed)
 
 // ###### CONTROL VIA TWO POTENTIOMETERS ######
 // ADC-calibration to cover the full poti-range: connect potis to left sensor board cable (0 to 3.3V) (do NOT use the red 15V wire in the cable!). see <How to calibrate>. turn the potis to minimum position, write value 1 to ADC1_MIN and value 2 to ADC2_MIN. turn to maximum position and repeat it for ADC?_MAX. make, flash and test it.
@@ -131,8 +131,9 @@
 // ###### CONSTANT FORWARD MODE ######
 // When enabled, motors will continuously run forward at a constant speed when powered
 // This bypasses all RC/input controls and makes the hoverboard move forward automatically
-#define CONSTANT_FORWARD_MODE    0  // Enable (1) or disable (0) constant forward mode
-#define CONSTANT_FORWARD_SPEED   500  // Speed value (0-1000). 500 = 50% speed, 1000 = 100% speed
+#define CONSTANT_FORWARD_MODE    1  // Enable (1) or disable (0) constant forward mode
+#define CONSTANT_FORWARD_SPEED   400  // Speed value (0-1000). 400 = 40% speed, 1000 = 100% speed
+#define CONSTANT_FORWARD_STARTUP_DELAY_MS  0  // Delay in milliseconds before motors start (0 = start immediately)
 
 #define BEEPS_BACKWARD 1    // 0 or 1
 

@@ -81,6 +81,7 @@ extern volatile uint32_t timeout; // global variable for timeout
 extern float batteryVoltage; // global variable for battery voltage
 
 uint32_t inactivity_timeout_counter;
+uint32_t startup_delay_counter = 0;  // Counter for startup delay before motors start
 
 extern uint8_t nunchuck_data[6];
 #ifdef CONTROL_PPM
@@ -256,6 +257,9 @@ int main(void) {
 #endif
 
   enable = 1;  // enable motors
+  #if defined(CONSTANT_FORWARD_MODE) && (CONSTANT_FORWARD_MODE == 1)
+    timeout = 0;  // Reset timeout at startup for constant forward mode
+  #endif
 #ifdef SOFTWATCHDOG_TIMEOUT
   MX_TIM3_Softwatchdog_Init(); // Start the WAtchdog
   SoftWatchdogActive= true;
@@ -263,6 +267,11 @@ int main(void) {
 
   while(1) {
       HAL_Delay(DELAY_IN_MAIN_LOOP); //delay in ms
+
+    // Reset timeout in constant forward mode to prevent motor disable
+    #if defined(CONSTANT_FORWARD_MODE) && (CONSTANT_FORWARD_MODE == 1)
+      timeout = 0;  // Reset timeout immediately in constant forward mode
+    #endif
 
     // TODO: Method to select which input is used for Protocol when both are active
     #if defined(SERIAL_USART2_IT) && defined(CONTROL_SERIAL_PROTOCOL)
@@ -432,7 +441,12 @@ int main(void) {
     // ####### SET OUTPUTS #######
     #if defined(CONSTANT_FORWARD_MODE) && (CONSTANT_FORWARD_MODE == 1)
       // Constant forward mode: motors run forward continuously at fixed speed
-      if (enable == 1) {
+      // Increment startup delay counter (each loop iteration = DELAY_IN_MAIN_LOOP ms)
+      if (startup_delay_counter < (CONSTANT_FORWARD_STARTUP_DELAY_MS / DELAY_IN_MAIN_LOOP)) {
+        startup_delay_counter++;
+      }
+      
+      if (enable == 1 && startup_delay_counter >= (CONSTANT_FORWARD_STARTUP_DELAY_MS / DELAY_IN_MAIN_LOOP)) {
         // Reset timeout to prevent motor disable in constant forward mode
         // (timeout is normally used to detect missing RC signal, but we don't need RC in this mode)
         timeout = 0;
@@ -451,7 +465,7 @@ int main(void) {
           pwml = constSpeed;      // Positive value = forward when INVERT_L_DIRECTION is NOT defined
         #endif
       } else {
-        // Motors disabled - stop motors
+        // Motors disabled or startup delay not finished - stop motors
         pwml = 0;
         pwmr = 0;
       }
