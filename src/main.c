@@ -256,10 +256,11 @@ int main(void) {
   serial_usart_buffer_flush(&usart3_it_RXbuffer);
 #endif
 
-  enable = 1;  // enable motors
   #if defined(CONSTANT_FORWARD_MODE) && (CONSTANT_FORWARD_MODE == 1)
-    timeout = 0;  // Reset timeout at startup for constant forward mode
+    timeout = 0;  // Reset timeout at startup for constant forward mode (before enabling motors)
+    startup_delay_counter = 0;  // Initialize startup delay counter
   #endif
+  enable = 1;  // enable motors
 #ifdef SOFTWATCHDOG_TIMEOUT
   MX_TIM3_Softwatchdog_Init(); // Start the WAtchdog
   SoftWatchdogActive= true;
@@ -441,16 +442,17 @@ int main(void) {
     // ####### SET OUTPUTS #######
     #if defined(CONSTANT_FORWARD_MODE) && (CONSTANT_FORWARD_MODE == 1)
       // Constant forward mode: motors run forward continuously at fixed speed
-      // Increment startup delay counter (each loop iteration = DELAY_IN_MAIN_LOOP ms)
-      if (startup_delay_counter < (CONSTANT_FORWARD_STARTUP_DELAY_MS / DELAY_IN_MAIN_LOOP)) {
-        startup_delay_counter++;
+      // Reset timeout to prevent motor disable in constant forward mode
+      // (timeout is normally used to detect missing RC signal, but we don't need RC in this mode)
+      timeout = 0;
+      
+      // Check if startup delay has elapsed
+      uint32_t delay_loops = 0;
+      if (CONSTANT_FORWARD_STARTUP_DELAY_MS > 0 && DELAY_IN_MAIN_LOOP > 0) {
+        delay_loops = (CONSTANT_FORWARD_STARTUP_DELAY_MS + DELAY_IN_MAIN_LOOP - 1) / DELAY_IN_MAIN_LOOP;  // Round up
       }
       
-      if (enable == 1 && startup_delay_counter >= (CONSTANT_FORWARD_STARTUP_DELAY_MS / DELAY_IN_MAIN_LOOP)) {
-        // Reset timeout to prevent motor disable in constant forward mode
-        // (timeout is normally used to detect missing RC signal, but we don't need RC in this mode)
-        timeout = 0;
-        
+      if (enable == 1 && startup_delay_counter >= delay_loops) {
         // Set constant forward speed for both motors
         // Use the same direction logic as normal mode to ensure correct forward direction
         int constSpeed = CLAMP(CONSTANT_FORWARD_SPEED, 0, 1000);
@@ -465,6 +467,10 @@ int main(void) {
           pwml = constSpeed;      // Positive value = forward when INVERT_L_DIRECTION is NOT defined
         #endif
       } else {
+        // Increment startup delay counter (each loop iteration = DELAY_IN_MAIN_LOOP ms)
+        if (startup_delay_counter < delay_loops) {
+          startup_delay_counter++;
+        }
         // Motors disabled or startup delay not finished - stop motors
         pwml = 0;
         pwmr = 0;

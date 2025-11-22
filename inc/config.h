@@ -132,8 +132,8 @@
 // When enabled, motors will continuously run forward at a constant speed when powered
 // This bypasses all RC/input controls and makes the hoverboard move forward automatically
 #define CONSTANT_FORWARD_MODE    1  // Enable (1) or disable (0) constant forward mode
-#define CONSTANT_FORWARD_SPEED   400  // Speed value (0-1000). 400 = 40% speed, 1000 = 100% speed
-#define CONSTANT_FORWARD_STARTUP_DELAY_MS  0  // Delay in milliseconds before motors start (0 = start immediately)
+#define CONSTANT_FORWARD_SPEED   1000  // Speed value (0-1000). 400 = 40% speed, 1000 = 100% speed (FULL SPEED)
+#define CONSTANT_FORWARD_STARTUP_DELAY_MS  0  // Delay in milliseconds before motors start (0 = start immediately on power-on)
 
 #define BEEPS_BACKWARD 1    // 0 or 1
 

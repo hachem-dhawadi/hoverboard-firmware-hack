@@ -166,19 +166,36 @@ void DMA1_Channel1_IRQHandler() {
   }
 
   //disable PWM when current limit is reached (current chopping)
-  if(ABS((adc_buffer.dcl - offsetdcl) * MOTOR_AMP_CONV_DC_AMP) > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
-    LEFT_TIM->BDTR &= ~TIM_BDTR_MOE;
-    //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
-  } else {
-    LEFT_TIM->BDTR |= TIM_BDTR_MOE;
-    //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 0);
-  }
+  // In constant forward mode, ignore timeout check (timeout is not used for RC signal detection)
+  #if defined(CONSTANT_FORWARD_MODE) && (CONSTANT_FORWARD_MODE == 1)
+    if(ABS((adc_buffer.dcl - offsetdcl) * MOTOR_AMP_CONV_DC_AMP) > DC_CUR_LIMIT || enable == 0) {
+      LEFT_TIM->BDTR &= ~TIM_BDTR_MOE;
+      //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
+    } else {
+      LEFT_TIM->BDTR |= TIM_BDTR_MOE;
+      //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 0);
+    }
 
-  if(ABS((adc_buffer.dcr - offsetdcr) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
-    RIGHT_TIM->BDTR &= ~TIM_BDTR_MOE;
-  } else {
-    RIGHT_TIM->BDTR |= TIM_BDTR_MOE;
-  }
+    if(ABS((adc_buffer.dcr - offsetdcr) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT || enable == 0) {
+      RIGHT_TIM->BDTR &= ~TIM_BDTR_MOE;
+    } else {
+      RIGHT_TIM->BDTR |= TIM_BDTR_MOE;
+    }
+  #else
+    if(ABS((adc_buffer.dcl - offsetdcl) * MOTOR_AMP_CONV_DC_AMP) > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
+      LEFT_TIM->BDTR &= ~TIM_BDTR_MOE;
+      //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 1);
+    } else {
+      LEFT_TIM->BDTR |= TIM_BDTR_MOE;
+      //HAL_GPIO_WritePin(LED_PORT, LED_PIN, 0);
+    }
+
+    if(ABS((adc_buffer.dcr - offsetdcr) * MOTOR_AMP_CONV_DC_AMP)  > DC_CUR_LIMIT || timeout > TIMEOUT || enable == 0) {
+      RIGHT_TIM->BDTR &= ~TIM_BDTR_MOE;
+    } else {
+      RIGHT_TIM->BDTR |= TIM_BDTR_MOE;
+    }
+  #endif
 
   int ul, vl, wl;
   int ur, vr, wr;
